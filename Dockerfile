@@ -207,7 +207,7 @@ RUN cd /tmp                                                          && \
 
 # Install other nagios plugins made by other people:
 RUN cd /opt                                                                         && \
-    pip install pymssql paho-mqtt pymssql                                           && \
+    pip install pymssql paho-mqtt pymssql --break-system-packages                   && \
     git clone https://github.com/willixix/naglio-plugins.git     WL-Nagios-Plugins  && \
     git clone https://github.com/JasonRivers/nagios-plugins.git  JR-Nagios-Plugins  && \
     git clone https://github.com/justintime/nagios-plugins.git   JE-Nagios-Plugins  && \
