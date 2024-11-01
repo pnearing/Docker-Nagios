@@ -24,10 +24,10 @@ if [ -z "$(ls -A /opt/nagiosgraph/var)" ]; then
     cp -Rp /orig/graph-var/* /opt/nagiosgraph/var/
 fi
 
-if [ ! -f "${NAGIOS_HOME}/etc/htpasswd.users" ] ; then
-  htpasswd -c -b -s "${NAGIOS_HOME}/etc/htpasswd.users" "${NAGIOSADMIN_USER}" "${NAGIOSADMIN_PASS}"
-  chown -R ${NAGIOS_USER}.${NAGIOS_GROUP} "${NAGIOS_HOME}/etc/htpasswd.users"
-fi
+#if [ ! -f "${NAGIOS_HOME}/etc/htpasswd.users" ] ; then
+htpasswd -c -b -s "${NAGIOS_HOME}/etc/htpasswd.users" "${NAGIOSADMIN_USER}" "${NAGIOSADMIN_PASS}"
+chown -R ${NAGIOS_USER}:${NAGIOS_GROUP} "${NAGIOS_HOME}/etc/htpasswd.users"
+#fi
 
 shutdown() {
   echo Shutting Down
