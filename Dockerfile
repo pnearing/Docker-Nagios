@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 MAINTAINER Jason Rivers <jason@jasonrivers.co.uk>
 
 #ENV EMAIL_HOST=YOUR_EMAIL_RELAY
