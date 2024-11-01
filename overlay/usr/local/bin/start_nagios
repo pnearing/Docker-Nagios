@@ -30,8 +30,10 @@ fi
 ##fi
 #
 
-htpasswd -b -c /opt/nagios/etc/htpasswd.users "${NAGIOSADMIN_USER}" "${NAGIOSADMIN_PASSWORD}"
+htpasswd -b -c "${NAGIOS_HOME}/etc/htpasswd.users" "${NAGIOSADMIN_USER}" "${NAGIOSADMIN_PASSWORD}"
 sed -i "s/nagiosadmin/${NAGIOSADMIN_USER}/g" "/${NAGIOS_HOME}/nagios/etc/cgi.cfg"
+chown "${NAGIOS_USER}":"${NAGIOS_GROUP}" "${NAGIOS_HOME}/etc/htpasswd.users"
+
 
 /etc/init.d/nagios start
 
