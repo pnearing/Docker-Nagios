@@ -97,7 +97,7 @@ RUN apt-get install -y    \
         msmtp-mta                           \
         mailutils                           \
                                                 && \
-    apt-get clean && rm -Rf /var/lib/apt/lists/*
+    apt-get clean # && rm -Rf /var/lib/apt/lists/*
 
 # Create Groups, then users:
 RUN ( egrep -i "^${NAGIOS_GROUP}"    /etc/group || groupadd $NAGIOS_GROUP    )                         && \
@@ -313,6 +313,7 @@ RUN ln -s /etc/sv/* /etc/service
 # fix ping permissions for nagios user
 RUN chmod u+s /usr/bin/ping
 
+# Export more vars:
 ENV APACHE_LOCK_DIR /var/run
 ENV APACHE_LOG_DIR /var/log/apache2
 
@@ -322,12 +323,21 @@ RUN echo "ServerName ${NAGIOS_FQDN}" > /etc/apache2/conf-available/servername.co
     ln -s /etc/apache2/conf-available/servername.conf /etc/apache2/conf-enabled/servername.conf    && \
     ln -s /etc/apache2/conf-available/timezone.conf /etc/apache2/conf-enabled/timezone.conf
 
+# Install and copy some logo images:
+RUN apt-get install -y nagios-images
+RUN cp -r /usr/share/nagios/htdocs/images/logos/* ${NAGIOS_HOME}/share/images/logos/
+COPY logos/f_logos ${NAGIOS_HOME}/share/images/logos/
+RUN chown -R ${NAGIOS_USER}:${NAGIOS_GROUP} ${NAGIOS_HOME}/share/images/logos/
+
+# Set the exposed ports:
 EXPOSE 80 5667 
 
+# Set the volumes:
 VOLUME "${NAGIOS_HOME}/var"
 VOLUME "${NAGIOS_HOME}/etc"
 VOLUME "/opt/Custom-Nagios-Plugins"
 VOLUME "/opt/nagiosgraph/var"
 VOLUME "/opt/nagiosgraph/etc"
 
+# Set the entrypoint:
 CMD [ "/usr/local/bin/start_nagios" ]
