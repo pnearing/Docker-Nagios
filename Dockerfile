@@ -78,7 +78,7 @@ RUN apt-get install -y    \
         libtext-glob-perl                   \
         libwww-perl                         \
         m4                                  \
-        netcat                              \
+        netcat-traditional                  \
         parallel                            \
         php-cli                             \
         php-gd                              \
