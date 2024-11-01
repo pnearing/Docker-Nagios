@@ -131,8 +131,10 @@ RUN cd /tmp                                                                     
                                                                                      && \
     make all                                                                         && \
     make install                                                                     && \
-    make install-config                                                              && \
+    make install-init                                                                && \
+    make install-daemoninit                                                          && \
     make install-commandmode                                                         && \
+    make install-config                                                              && \
     make install-webconf                                                             && \
     make clean                                                                       && \
     cd /tmp && rm -Rf nagioscore
