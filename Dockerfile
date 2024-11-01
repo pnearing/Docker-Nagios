@@ -1,34 +1,37 @@
 FROM ubuntu:22.04
 MAINTAINER Jason Rivers <jason@jasonrivers.co.uk>
 
-ENV NAGIOS_HOME            /opt/nagios
-ENV NAGIOS_USER            nagios
-ENV NAGIOS_GROUP           nagios
-ENV NAGIOS_CMDUSER         nagios
-ENV NAGIOS_CMDGROUP        nagios
-ENV NAGIOS_FQDN            nagios.example.com
-ENV NAGIOSADMIN_USER       nagiosadmin
-ENV NAGIOSADMIN_PASS       nagios
-ENV APACHE_RUN_USER        nagios
-ENV APACHE_RUN_GROUP       nagios
-ENV NAGIOS_TIMEZONE        UTC
-ENV DEBIAN_FRONTEND        noninteractive
-ENV NG_NAGIOS_CONFIG_FILE  ${NAGIOS_HOME}/etc/nagios.cfg
-ENV NG_CGI_DIR             ${NAGIOS_HOME}/sbin
-ENV NG_WWW_DIR             ${NAGIOS_HOME}/share/nagiosgraph
-ENV NG_CGI_URL             /cgi-bin
-ENV NAGIOS_BRANCH          nagios-4.5.2
-ENV NAGIOS_PLUGINS_BRANCH  release-2.4.10
-ENV NRPE_BRANCH            nrpe-4.1.0
-ENV NCPA_BRANCH            v3.1.0
-ENV NSCA_BRANCH            nsca-2.10.2
-ENV NAGIOSTV_VERSION       0.9.2
+#ENV EMAIL_HOST=YOUR_EMAIL_RELAY
+#ENV EMAIL_FROM=montoring@example.com
+#ENV EMAIL_USER=YOUR_EMAIL_USERNAME
+#ENV EMAIL_PASS=YOUR_EMAIL_PASSWORD
+ENV NAGIOS_HOME=/opt/nagios
+ENV NAGIOS_USER=nagios
+ENV NAGIOS_GROUP=nagios
+ENV NAGIOS_CMDUSER=nagios
+ENV NAGIOS_CMDGROUP=nagios
+#ENV NAGIOS_FQDN=nagios.example.com
+#ENV NAGIOSADMIN_USER=nagiosadmin
+#ENV NAGIOSADMIN_PASS=nagios
+ENV APACHE_RUN_USER=nagios
+ENV APACHE_RUN_GROUP=nagios
+ENV NAGIOS_TIMEZONE=America/Toronto
+ENV DEBIAN_FRONTEND=noninteractive
+ENV NG_NAGIOS_CONFIG_FILE=${NAGIOS_HOME}/etc/nagios.cfg
+ENV NG_CGI_DIR=${NAGIOS_HOME}/sbin
+ENV NG_WWW_DIR=${NAGIOS_HOME}/share/nagiosgraph
+ENV NG_CGI_URL=/cgi-bin
+ENV NAGIOS_BRANCH=nagios-4.5.7
+ENV NAGIOS_PLUGINS_BRANCH=release-2.4.11
+ENV NRPE_BRANCH=nrpe-4.1.1
+ENV NCPA_BRANCH=v3.1.1
+ENV NSCA_BRANCH=nsca-2.10.3
+ENV NAGIOSTV_VERSION=0.9.2
 
-
-RUN echo postfix postfix/main_mailer_type string "'Internet Site'" | debconf-set-selections  && \
-    echo postfix postfix/mynetworks string "127.0.0.0/8" | debconf-set-selections            && \
-    echo postfix postfix/mailname string ${NAGIOS_FQDN} | debconf-set-selections             && \
-    apt-get update && apt-get install -y    \
+# Update and install packages:
+RUN apt-get update
+RUN apt-get upgrade -y
+RUN apt-get install -y    \
         apache2                             \
         apache2-utils                       \
         autoconf                            \
@@ -79,7 +82,6 @@ RUN echo postfix postfix/main_mailer_type string "'Internet Site'" | debconf-set
         parallel                            \
         php-cli                             \
         php-gd                              \
-        postfix                             \
         python3-pip                         \
         python3-nagiosplugin                \
         rsync                               \
@@ -91,14 +93,19 @@ RUN echo postfix postfix/main_mailer_type string "'Internet Site'" | debconf-set
         snmp-mibs-downloader                \
         unzip                               \
         python3                             \
+        msmtp                               \
+        msmtp-mta                           \
+        mailutils                           \
                                                 && \
     apt-get clean && rm -Rf /var/lib/apt/lists/*
 
+# Create Groups, then users:
 RUN ( egrep -i "^${NAGIOS_GROUP}"    /etc/group || groupadd $NAGIOS_GROUP    )                         && \
     ( egrep -i "^${NAGIOS_CMDGROUP}" /etc/group || groupadd $NAGIOS_CMDGROUP )
 RUN ( id -u $NAGIOS_USER    || useradd --system -d $NAGIOS_HOME -g $NAGIOS_GROUP    $NAGIOS_USER    )  && \
     ( id -u $NAGIOS_CMDUSER || useradd --system -d $NAGIOS_HOME -g $NAGIOS_CMDGROUP $NAGIOS_CMDUSER )
 
+# Build and install qstat for monitoring game servers:
 RUN cd /tmp                                           && \
     git clone https://github.com/multiplay/qstat.git  && \
     cd qstat                                          && \
@@ -109,6 +116,7 @@ RUN cd /tmp                                           && \
     make clean                                        && \
     cd /tmp && rm -Rf qstat
 
+# Build and install Nagios Core:
 RUN cd /tmp                                                                          && \
     git clone https://github.com/NagiosEnterprises/nagioscore.git -b $NAGIOS_BRANCH  && \
     cd nagioscore                                                                    && \
@@ -129,6 +137,7 @@ RUN cd /tmp                                                                     
     make clean                                                                       && \
     cd /tmp && rm -Rf nagioscore
 
+# Build and install nagios-plugins:
 RUN cd /tmp                                                                                   && \
     git clone https://github.com/nagios-plugins/nagios-plugins.git -b $NAGIOS_PLUGINS_BRANCH  && \
     cd nagios-plugins                                                                         && \
@@ -148,9 +157,11 @@ RUN cd /tmp                                                                     
     chmod u+s ${NAGIOS_HOME}/libexec/check_icmp                                               && \
     cd /tmp && rm -Rf nagios-plugins                                                          
 
+# Install ncpa client:
 RUN wget -O ${NAGIOS_HOME}/libexec/check_ncpa.py https://raw.githubusercontent.com/NagiosEnterprises/ncpa/${NCPA_BRANCH}/client/check_ncpa.py  && \
     chmod +x ${NAGIOS_HOME}/libexec/check_ncpa.py
 
+# Build and install nrpe:
 RUN cd /tmp                                                                  && \
     git clone https://github.com/NagiosEnterprises/nrpe.git -b $NRPE_BRANCH  && \
     cd nrpe                                                                  && \
@@ -163,10 +174,11 @@ RUN cd /tmp                                                                  && 
     make clean                                                               && \
     cd /tmp && rm -Rf nrpe
 
+# Build and install nsca:
 RUN cd /tmp                                                 && \
     git clone https://github.com/NagiosEnterprises/nsca.git && \
     cd nsca                                                 && \
-    git checkout $NSCA_TAG                                  && \
+    git checkout $NSCA_BRANCH                               && \
     ./configure                                                \
         --prefix=${NAGIOS_HOME}                                \
         --with-nsca-user=${NAGIOS_USER}                        \
@@ -179,6 +191,7 @@ RUN cd /tmp                                                 && \
     sed -i 's/^#server_address.*/server_address=0.0.0.0/'  ${NAGIOS_HOME}/etc/nsca.cfg && \
     cd /tmp && rm -Rf nsca
 
+# Build and install nagiosgraph
 RUN cd /tmp                                                          && \
     git clone https://git.code.sf.net/p/nagiosgraph/git nagiosgraph  && \
     cd nagiosgraph                                                   && \
@@ -192,6 +205,7 @@ RUN cd /tmp                                                          && \
     cp share/nagiosgraph.ssi ${NAGIOS_HOME}/share/ssi/common-header.ssi && \
     cd /tmp && rm -Rf nagiosgraph
 
+# Install other nagios plugins made by other people:
 RUN cd /opt                                                                         && \
     pip install pymssql paho-mqtt pymssql                                           && \
     git clone https://github.com/willixix/naglio-plugins.git     WL-Nagios-Plugins  && \
@@ -214,17 +228,20 @@ RUN cd /opt                                                                     
     cp /opt/DF-Nagios-Plugins/check_jenkins/check_jenkins ${NAGIOS_HOME}/libexec/   && \
     cp /opt/DF-Nagios-Plugins/check_vpn/check_vpn ${NAGIOS_HOME}/libexec/
 
+# Install nagiostv:
 RUN cd /tmp && \
     wget https://github.com/chriscareycode/nagiostv-react/releases/download/v${NAGIOSTV_VERSION}/nagiostv-${NAGIOSTV_VERSION}.tar.gz && \
     tar xf nagiostv-${NAGIOSTV_VERSION}.tar.gz -C /opt/nagios/share/ && \
     rm /tmp/nagiostv-${NAGIOSTV_VERSION}.tar.gz
 
+# Configure apache2:
 RUN sed -i.bak 's/.*\=www\-data//g' /etc/apache2/envvars
 RUN export DOC_ROOT="DocumentRoot $(echo $NAGIOS_HOME/share)"                         && \
     sed -i "s,DocumentRoot.*,$DOC_ROOT," /etc/apache2/sites-enabled/000-default.conf  && \
     sed -i "s,</VirtualHost>,<IfDefine ENABLE_USR_LIB_CGI_BIN>\nScriptAlias /cgi-bin/ ${NAGIOS_HOME}/sbin/\n</IfDefine>\n</VirtualHost>," /etc/apache2/sites-enabled/000-default.conf  && \
     ln -s /etc/apache2/mods-available/cgi.load /etc/apache2/mods-enabled/cgi.load
 
+# Not sure what this is doing:
 RUN mkdir -p -m 0755 /usr/share/snmp/mibs                     && \
     mkdir -p         ${NAGIOS_HOME}/etc/conf.d                && \
     mkdir -p         ${NAGIOS_HOME}/etc/monitor               && \
@@ -235,23 +252,27 @@ RUN mkdir -p -m 0755 /usr/share/snmp/mibs                     && \
     ln -s ${NAGIOS_HOME}/bin/nagios /usr/local/bin/nagios     && \
     download-mibs && echo "mibs +ALL" > /etc/snmp/snmp.conf
 
-RUN sed -i 's,/bin/mail,/usr/bin/mail,' ${NAGIOS_HOME}/etc/objects/commands.cfg  && \
-    sed -i 's,/usr/usr,/usr,'           ${NAGIOS_HOME}/etc/objects/commands.cfg
-
-RUN cp /etc/services /var/spool/postfix/etc/  && \
-    echo "smtp_address_preference = ipv4" >> /etc/postfix/main.cf
-
+# Remove default syslog conf:
 RUN rm -rf /etc/rsyslog.d /etc/rsyslog.conf
 
+# Remove TTY:
 RUN rm -rf /etc/sv/getty-5
 
+# Copy etc(service runners), opt(nagios and nagiosgraph configs), and usr (start_nagios script) to our
+#   image:
 ADD overlay /
 
+# Configure msmtp:
+RUN echo "host $EMAIL_HOST" >> /etc/msmtprc
+RUN echo "from $EMAIL_FROM" >> /etc/msmtprc
+RUN echo "user $EMAIL_USER" >> /etc/msmtprc
+RUN echo "password $EMAIL_PASS" >> /etc/msmtprc
+
+# Set Nagios timezone info:
 RUN echo "use_timezone=${NAGIOS_TIMEZONE}" >> ${NAGIOS_HOME}/etc/nagios.cfg
 
 
 # Copy example config in-case the user has started with empty var or etc
-
 RUN mkdir -p /orig/var                     && \
     mkdir -p /orig/etc                     && \
     mkdir -p /orig/graph-etc                     && \
@@ -265,22 +286,23 @@ RUN mkdir -p /orig/var                     && \
 RUN find /opt/nagios/etc \! -user ${NAGIOS_USER} -exec chown ${NAGIOS_USER}:${NAGIOS_GROUP} '{}' + && \
     find /orig/etc \! -user ${NAGIOS_USER} -exec chown ${NAGIOS_USER}:${NAGIOS_GROUP} '{}' +
 
+# Enable apache modules:
 RUN a2enmod session         && \
     a2enmod session_cookie  && \
     a2enmod session_crypto  && \
     a2enmod auth_form       && \
     a2enmod request
 
+# Mark runners as executable:
 RUN chmod +x /usr/local/bin/start_nagios        && \
     chmod +x /etc/sv/apache/run                 && \
     chmod +x /etc/sv/nagios/run                 && \
-    chmod +x /etc/sv/postfix/run                 && \
     chmod +x /etc/sv/rsyslog/run                 && \
     chmod +x /opt/nagiosgraph/etc/fix-nagiosgraph-multiple-selection.sh
 
+# Run fix script, and remove it:
 RUN cd /opt/nagiosgraph/etc && \
     sh fix-nagiosgraph-multiple-selection.sh
-
 RUN rm /opt/nagiosgraph/etc/fix-nagiosgraph-multiple-selection.sh
 
 # enable all runit services
